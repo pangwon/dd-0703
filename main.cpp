@@ -1,8 +1,11 @@
 #include "gmock/gmock.h"
 #include "device_driver.h"
+#include "app.cpp"
 #include <stdexcept>
 
 using namespace testing;
+
+
 
 class MockHardware : public FlashMemoryDevice {
 public:
@@ -14,6 +17,7 @@ class DeviceDriverFixture : public Test {
 public:
 	MockHardware HARDWARE;
 	DeviceDriver driver{ &HARDWARE };
+	App app{ &driver };
 };
 
 TEST_F(DeviceDriverFixture, ReadFromHW) {
@@ -48,6 +52,29 @@ TEST_F(DeviceDriverFixture, WriteFailTest) {
 		.WillOnce(Return(0xFA));
 
 	EXPECT_THROW(driver.write(0xAA, 0xBB), std::exception);
+}
+
+TEST_F(DeviceDriverFixture, AppReadTest) {
+
+	std::ostringstream oss;
+	std::streambuf* orig_buf = std::cout.rdbuf(oss.rdbuf());
+
+	EXPECT_CALL(HARDWARE, read(0xAA))
+		.WillRepeatedly(Return(0xDE));
+	EXPECT_CALL(HARDWARE, read(0xAB))
+		.WillRepeatedly(Return(0xAD));
+	EXPECT_CALL(HARDWARE, read(0xAC))
+		.WillRepeatedly(Return(0xBE));
+	EXPECT_CALL(HARDWARE, read(0xAD))
+		.WillRepeatedly(Return(0xEF));
+
+	app.readAndPrint(0xAA, 0xAD);
+	std::cout.rdbuf(orig_buf);
+	EXPECT_EQ(oss.str(), "0xDEADBEEF");
+}
+
+TEST_F(DeviceDriverFixture, AppWriteTest) {
+
 }
 
 int main() {
